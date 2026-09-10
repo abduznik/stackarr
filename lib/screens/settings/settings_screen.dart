@@ -2,15 +2,58 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/instance_config.dart';
 import '../../providers/instance_providers.dart';
+import '../../services/storage/app_lock_repository.dart';
+import '../../services/storage/biometric_auth_service.dart';
+import '../lock/set_pin_screen.dart';
 import '../setup/setup_wizard_screen.dart';
 
-/// Lists every configured instance with a remove action, and a button to
-/// launch the same wizard flow used on first run to add more services.
-class SettingsScreen extends ConsumerWidget {
+/// Lists every configured instance with a remove action, a button to
+/// launch the same wizard flow used on first run to add more services,
+/// and a Security section to enable/disable the app-level PIN/biometric
+/// lock (see lib/screens/lock).
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final _lockRepo = AppLockRepository();
+  final _biometrics = BiometricAuthService();
+
+  Future<void> _toggleLock(bool enable) async {
+    if (enable) {
+      final result = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const SetPinScreen()),
+      );
+      if (result == true && mounted) setState(() {});
+    } else {
+      await _lockRepo.disableLock();
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _toggleBiometric(bool enable) async {
+    if (enable) {
+      final available = await _biometrics.isAvailable();
+      if (!available) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content:
+                    Text('Biometric auth is not available on this device')),
+          );
+        }
+        return;
+      }
+    }
+    await _lockRepo.setBiometricEnabled(enable);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final instancesAsync = ref.watch(instancesProvider);
 
     return Scaffold(
@@ -44,6 +87,43 @@ class SettingsScreen extends ConsumerWidget {
                   );
                 },
               ),
+            ),
+            const Divider(height: 32),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text('Security',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            FutureBuilder<bool>(
+              future: _lockRepo.isLockEnabled(),
+              builder: (context, snapshot) {
+                final enabled = snapshot.data ?? false;
+                return SwitchListTile(
+                  title: const Text('App lock'),
+                  subtitle: const Text('Require a PIN to open Stackarr'),
+                  value: enabled,
+                  onChanged: _toggleLock,
+                );
+              },
+            ),
+            FutureBuilder<bool>(
+              future: _lockRepo.isLockEnabled(),
+              builder: (context, lockSnapshot) {
+                if (lockSnapshot.data != true) return const SizedBox.shrink();
+                return FutureBuilder<bool>(
+                  future: _lockRepo.isBiometricEnabled(),
+                  builder: (context, snapshot) {
+                    final enabled = snapshot.data ?? false;
+                    return SwitchListTile(
+                      title: const Text('Biometric unlock'),
+                      subtitle: const Text(
+                          'Use fingerprint or face instead of the PIN'),
+                      value: enabled,
+                      onChanged: _toggleBiometric,
+                    );
+                  },
+                );
+              },
             ),
           ],
         ),

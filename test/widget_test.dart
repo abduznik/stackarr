@@ -2,10 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stackarr/main.dart';
+import 'test_helpers/secure_storage_mock.dart';
 
 void main() {
   testWidgets('StackarrApp shows the setup wizard with no instances configured',
       (WidgetTester tester) async {
+    mockSecureStorage();
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const ProviderScope(child: StackarrApp()));
     await tester.pumpAndSettle();
