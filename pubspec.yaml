@@ -1,0 +1,37 @@
+name: stackarr
+description: A cross-platform Flutter app to manage your entire *arr media stack — Radarr, Sonarr, Lidarr, Prowlarr, Bazarr & more.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # HTTP & API
+  http: ^1.2.0
+  web_socket_channel: ^3.0.0  # Real-time arr updates
+  # State management
+  flutter_riverpod: ^2.6.0
+  # Storage
+  shared_preferences: ^2.3.0
+  sqflite: ^2.4.0
+  # UI
+  cached_network_image: ^3.4.0
+  flutter_staggered_animations: ^1.1.0
+  material_design_icons_flutter: ^7.0.0
+  table_calendar: ^3.2.0      # Unified calendar
+  # Navigation
+  go_router: ^14.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
