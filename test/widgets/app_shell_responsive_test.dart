@@ -81,7 +81,8 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
   });
 
-  testWidgets('lists every configured instance plus Home and Settings',
+  testWidgets(
+      'lists every configured instance plus Home, Calendar and Settings',
       (tester) async {
     await _pumpShellAt(tester, _desktopLandscape);
 
@@ -89,12 +90,38 @@ void main() {
     expect(rail, findsOneWidget);
     expect(
         find.descendant(of: rail, matching: find.text('Home')), findsOneWidget);
+    expect(find.descendant(of: rail, matching: find.text('Calendar')),
+        findsOneWidget);
     expect(find.descendant(of: rail, matching: find.text('Movies')),
         findsOneWidget);
     expect(
         find.descendant(of: rail, matching: find.text('TV')), findsOneWidget);
     expect(find.descendant(of: rail, matching: find.text('Settings')),
         findsOneWidget);
+  });
+
+  testWidgets('hides Calendar when no Radarr/Sonarr instance is configured',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'stackarr.instances': '''
+      [
+        {"id":"1","type":"qbittorrent","label":"Downloads","baseUrl":"http://localhost:8080"}
+      ]
+      ''',
+    });
+    tester.view.physicalSize = _desktopLandscape;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: AppShell())),
+    );
+    await tester.pumpAndSettle();
+
+    final rail = find.byType(NavigationRail);
+    expect(find.descendant(of: rail, matching: find.text('Calendar')),
+        findsNothing);
   });
 
   testWidgets('navigating between destinations updates the body',

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/instance_config.dart';
 import '../../models/service_type.dart';
 import '../../providers/instance_providers.dart';
+import '../calendar/calendar_screen.dart';
 import '../settings/settings_screen.dart';
 import 'dashboard_screen.dart';
 import 'service_screen_router.dart';
@@ -86,6 +87,14 @@ class _AppShellState extends ConsumerState<AppShell> {
         builder: (_) => const DashboardScreen(),
       ),
     ];
+
+    if (hasCalendarCapableInstance(instances)) {
+      destinations.add(_Destination(
+        label: 'Calendar',
+        icon: Icons.calendar_month_outlined,
+        builder: (_) => const CalendarScreen(),
+      ));
+    }
 
     for (final instance in instances) {
       destinations.add(_Destination(
