@@ -118,5 +118,18 @@ abstract class ServarrClient {
     }
   }
 
+  /// `/qualityprofile` is identical across Radarr/Sonarr/Lidarr (same
+  /// resource shape, same PUT-the-whole-object update semantics), so it
+  /// lives on the shared base rather than being duplicated per client.
+  Future<List<dynamic>> getQualityProfiles() async {
+    final result = await get('qualityprofile');
+    return result as List<dynamic>;
+  }
+
+  Future<void> updateQualityProfile(
+      int id, Map<String, dynamic> updatedProfile) async {
+    await put('qualityprofile/$id', body: updatedProfile);
+  }
+
   void close() => _http.close();
 }

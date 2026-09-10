@@ -6,6 +6,7 @@ import '../../models/instance_config.dart';
 import '../../services/arr/lidarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
+import '../shared/quality_profiles_screen.dart';
 import '../shared/queue_tab.dart';
 import '../shared/selectable_grid.dart';
 
@@ -38,6 +39,22 @@ class MusicScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(instance.label),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.tune),
+              tooltip: 'Quality profiles',
+              onPressed: () async {
+                final client =
+                    await ref.read(_lidarrClientProvider(instance).future);
+                if (!context.mounted) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => QualityProfilesScreen(client: client),
+                  ),
+                );
+              },
+            ),
+          ],
           bottom: const TabBar(tabs: [
             Tab(text: 'Library'),
             Tab(text: 'Activity'),

@@ -84,11 +84,6 @@ class LidarrClient extends ServarrClient {
     return Artist.fromJson(result);
   }
 
-  Future<List<dynamic>> getQualityProfiles() async {
-    final result = await get('qualityprofile');
-    return result as List<dynamic>;
-  }
-
   Future<List<dynamic>> getRootFolders() async {
     final result = await get('rootfolder');
     return result as List<dynamic>;

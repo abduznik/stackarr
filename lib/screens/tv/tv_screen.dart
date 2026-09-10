@@ -6,6 +6,7 @@ import '../../models/series.dart';
 import '../../services/arr/sonarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
+import '../shared/quality_profiles_screen.dart';
 import '../shared/queue_tab.dart';
 import '../shared/selectable_grid.dart';
 import 'series_detail_screen.dart';
@@ -39,6 +40,22 @@ class TvScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(instance.label),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.tune),
+              tooltip: 'Quality profiles',
+              onPressed: () async {
+                final client =
+                    await ref.read(_sonarrClientProvider(instance).future);
+                if (!context.mounted) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => QualityProfilesScreen(client: client),
+                  ),
+                );
+              },
+            ),
+          ],
           bottom: const TabBar(tabs: [
             Tab(text: 'Library'),
             Tab(text: 'Activity'),
