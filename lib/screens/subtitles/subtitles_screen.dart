@@ -1,0 +1,64 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/instance_config.dart';
+import '../../services/arr/bazarr_client.dart';
+import '../../services/storage/instance_repository.dart';
+
+final _bazarrClientProvider =
+    FutureProvider.family<BazarrClient, InstanceConfig>((ref, instance) async {
+  final repo = InstanceRepository();
+  final apiKey = await repo.getApiKey(instance.id);
+  return BazarrClient(baseUrl: instance.baseUrl, apiKey: apiKey ?? '');
+});
+
+final _wantedProvider =
+    FutureProvider.family<List<dynamic>, InstanceConfig>((ref, instance) async {
+  final client = await ref.watch(_bazarrClientProvider(instance).future);
+  final movies = await client.getWantedMovies();
+  final episodes = await client.getWantedEpisodes();
+  return [...movies, ...episodes];
+});
+
+/// Bazarr wanted-subtitles screen: what's missing subtitles across movies
+/// and episodes, mirroring Bazarr's own "Wanted" tab.
+class SubtitlesScreen extends ConsumerWidget {
+  final InstanceConfig instance;
+
+  const SubtitlesScreen({super.key, required this.instance});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final wantedAsync = ref.watch(_wantedProvider(instance));
+
+    return Scaffold(
+      appBar: AppBar(title: Text(instance.label)),
+      body: wantedAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (items) {
+          if (items.isEmpty) {
+            return const Center(child: Text('No wanted subtitles'));
+          }
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(_wantedProvider(instance)),
+            child: ListView.builder(
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index] as Map<String, dynamic>;
+                final title =
+                    item['title'] as String? ?? item['seriesTitle'] as String?;
+                return ListTile(
+                  leading: const Icon(Icons.subtitles_outlined),
+                  title: Text(title ?? 'Unknown'),
+                  subtitle: item['episode_title'] != null
+                      ? Text(item['episode_title'] as String)
+                      : null,
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

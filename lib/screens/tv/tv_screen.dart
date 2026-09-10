@@ -1,0 +1,116 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/instance_config.dart';
+import '../../models/series.dart';
+import '../../services/arr/sonarr_client.dart';
+import '../../services/storage/instance_repository.dart';
+
+final _sonarrClientProvider =
+    FutureProvider.family<SonarrClient, InstanceConfig>((ref, instance) async {
+  final repo = InstanceRepository();
+  final apiKey = await repo.getApiKey(instance.id);
+  return SonarrClient(baseUrl: instance.baseUrl, apiKey: apiKey ?? '');
+});
+
+final _seriesProvider =
+    FutureProvider.family<List<Series>, InstanceConfig>((ref, instance) async {
+  final client = await ref.watch(_sonarrClientProvider(instance).future);
+  return client.getSeries();
+});
+
+/// Sonarr library screen: browse + monitor toggle, mirroring MoviesScreen's
+/// shape for Radarr — same interaction model, different backing client.
+class TvScreen extends ConsumerWidget {
+  final InstanceConfig instance;
+
+  const TvScreen({super.key, required this.instance});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final seriesAsync = ref.watch(_seriesProvider(instance));
+
+    return Scaffold(
+      appBar: AppBar(title: Text(instance.label)),
+      body: seriesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (series) {
+          if (series.isEmpty) {
+            return const Center(child: Text('No series in library'));
+          }
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(_seriesProvider(instance)),
+            child: GridView.builder(
+              padding: const EdgeInsets.all(12),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 160,
+                childAspectRatio: 0.6,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: series.length,
+              itemBuilder: (context, index) =>
+                  _SeriesTile(series: series[index], instance: instance),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SeriesTile extends ConsumerWidget {
+  final Series series;
+  final InstanceConfig instance;
+
+  const _SeriesTile({required this.series, required this.instance});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onLongPress: () async {
+        final client = await ref.read(_sonarrClientProvider(instance).future);
+        await client.setMonitored(series.id, !series.monitored);
+        ref.invalidate(_seriesProvider(instance));
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: series.posterUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: series.posterUrl!,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              const ColoredBox(color: Colors.black12),
+                        )
+                      : const ColoredBox(color: Colors.black12),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Icon(
+                    series.monitored ? Icons.bookmark : Icons.bookmark_border,
+                    color: Colors.white,
+                    shadows: const [Shadow(blurRadius: 4)],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(series.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
