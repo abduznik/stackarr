@@ -6,6 +6,7 @@ import '../../models/instance_config.dart';
 import '../../services/arr/lidarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
+import '../shared/queue_tab.dart';
 
 final _lidarrClientProvider =
     FutureProvider.family<LidarrClient, InstanceConfig>((ref, instance) async {
@@ -31,83 +32,106 @@ class MusicScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final artistsAsync = ref.watch(_artistsProvider(instance));
 
-    return Scaffold(
-      appBar: AppBar(title: Text(instance.label)),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Add artist',
-        onPressed: () async {
-          final client = await ref.read(_lidarrClientProvider(instance).future);
-          final existingArtists = await client.getArtists();
-          final existingForeignIds = existingArtists
-              .map((a) => a.foreignArtistId)
-              .whereType<String>()
-              .toSet();
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(instance.label),
+          bottom: const TabBar(tabs: [
+            Tab(text: 'Library'),
+            Tab(text: 'Activity'),
+          ]),
+        ),
+        floatingActionButton: FloatingActionButton(
+          tooltip: 'Add artist',
+          onPressed: () async {
+            final client =
+                await ref.read(_lidarrClientProvider(instance).future);
+            final existingArtists = await client.getArtists();
+            final existingForeignIds = existingArtists
+                .map((a) => a.foreignArtistId)
+                .whereType<String>()
+                .toSet();
 
-          if (!context.mounted) return;
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => AddMediaScreen(
-                serviceLabel: instance.label,
-                onSearch: client.lookupArtist,
-                onLoadQualityProfiles: client.getQualityProfiles,
-                onLoadRootFolders: client.getRootFolders,
-                onAdd: ({
-                  required lookupResult,
-                  required qualityProfileId,
-                  required rootFolderPath,
-                  required monitored,
-                  required searchOnAdd,
-                }) =>
-                    client.addArtist(
-                  lookupResult: lookupResult,
-                  qualityProfileId: qualityProfileId,
-                  rootFolderPath: rootFolderPath,
-                  monitored: monitored,
-                  searchOnAdd: searchOnAdd,
-                ),
-                titleOf: (r) => r['artistName'] as String? ?? 'Unknown',
-                posterUrlOf: (r) {
-                  final images = (r['images'] as List<dynamic>?) ?? [];
-                  for (final img in images) {
-                    if (img['coverType'] == 'poster') {
-                      return img['remoteUrl'] as String? ??
-                          img['url'] as String?;
+            if (!context.mounted) return;
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AddMediaScreen(
+                  serviceLabel: instance.label,
+                  onSearch: client.lookupArtist,
+                  onLoadQualityProfiles: client.getQualityProfiles,
+                  onLoadRootFolders: client.getRootFolders,
+                  onAdd: ({
+                    required lookupResult,
+                    required qualityProfileId,
+                    required rootFolderPath,
+                    required monitored,
+                    required searchOnAdd,
+                  }) =>
+                      client.addArtist(
+                    lookupResult: lookupResult,
+                    qualityProfileId: qualityProfileId,
+                    rootFolderPath: rootFolderPath,
+                    monitored: monitored,
+                    searchOnAdd: searchOnAdd,
+                  ),
+                  titleOf: (r) => r['artistName'] as String? ?? 'Unknown',
+                  posterUrlOf: (r) {
+                    final images = (r['images'] as List<dynamic>?) ?? [];
+                    for (final img in images) {
+                      if (img['coverType'] == 'poster') {
+                        return img['remoteUrl'] as String? ??
+                            img['url'] as String?;
+                      }
                     }
-                  }
-                  return null;
-                },
-                alreadyAdded: (r) => existingForeignIds
-                    .contains(r['foreignArtistId'] as String?),
+                    return null;
+                  },
+                  alreadyAdded: (r) => existingForeignIds
+                      .contains(r['foreignArtistId'] as String?),
+                ),
               ),
+            );
+            ref.invalidate(_artistsProvider(instance));
+          },
+          child: const Icon(Icons.add),
+        ),
+        body: TabBarView(
+          children: [
+            artistsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (artists) {
+                if (artists.isEmpty) {
+                  return const Center(child: Text('No artists in library'));
+                }
+                return RefreshIndicator(
+                  onRefresh: () async =>
+                      ref.invalidate(_artistsProvider(instance)),
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 160,
+                      childAspectRatio: 0.8,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: artists.length,
+                    itemBuilder: (context, index) =>
+                        _ArtistTile(artist: artists[index], instance: instance),
+                  ),
+                );
+              },
             ),
-          );
-          ref.invalidate(_artistsProvider(instance));
-        },
-        child: const Icon(Icons.add),
-      ),
-      body: artistsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (artists) {
-          if (artists.isEmpty) {
-            return const Center(child: Text('No artists in library'));
-          }
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(_artistsProvider(instance)),
-            child: GridView.builder(
-              padding: const EdgeInsets.all(12),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 160,
-                childAspectRatio: 0.8,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: artists.length,
-              itemBuilder: (context, index) =>
-                  _ArtistTile(artist: artists[index], instance: instance),
+            QueueTab(
+              onLoadQueue: () async {
+                final client =
+                    await ref.read(_lidarrClientProvider(instance).future);
+                return client.getQueue();
+              },
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
