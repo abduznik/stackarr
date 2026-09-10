@@ -7,6 +7,7 @@ import '../../services/arr/radarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
 import '../shared/queue_tab.dart';
+import '../shared/selectable_grid.dart';
 
 final _radarrClientProvider =
     FutureProvider.family<RadarrClient, InstanceConfig>((ref, instance) async {
@@ -101,22 +102,60 @@ class MoviesScreen extends ConsumerWidget {
                 if (movies.isEmpty) {
                   return const Center(child: Text('No movies in library'));
                 }
-                return RefreshIndicator(
+                return SelectableGrid<Movie>(
+                  items: movies,
+                  idOf: (m) => m.id,
                   onRefresh: () async =>
                       ref.invalidate(_moviesProvider(instance)),
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 160,
-                      childAspectRatio: 0.6,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: movies.length,
-                    itemBuilder: (context, index) =>
-                        _MovieTile(movie: movies[index], instance: instance),
+                  onActionCompleted: () =>
+                      ref.invalidate(_moviesProvider(instance)),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 160,
+                    childAspectRatio: 0.6,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
                   ),
+                  actions: [
+                    BulkAction(
+                      icon: Icons.bookmark,
+                      label: 'Monitor',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_radarrClientProvider(instance).future);
+                        await client.setMonitoredBulk(ids, true);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.bookmark_border,
+                      label: 'Unmonitor',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_radarrClientProvider(instance).future);
+                        await client.setMonitoredBulk(ids, false);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.search,
+                      label: 'Search',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_radarrClientProvider(instance).future);
+                        await client.searchMoviesBulk(ids);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.delete_outline,
+                      label: 'Delete',
+                      destructive: true,
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_radarrClientProvider(instance).future);
+                        await client.deleteMoviesBulk(ids);
+                      },
+                    ),
+                  ],
+                  itemBuilder: (context, movie, selected, onToggle) =>
+                      _MovieTile(movie: movie, selected: selected),
                 );
               },
             ),
@@ -134,64 +173,75 @@ class MoviesScreen extends ConsumerWidget {
   }
 }
 
-class _MovieTile extends ConsumerWidget {
+class _MovieTile extends StatelessWidget {
   final Movie movie;
-  final InstanceConfig instance;
+  final bool selected;
 
-  const _MovieTile({required this.movie, required this.instance});
+  const _MovieTile({required this.movie, required this.selected});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onLongPress: () async {
-        final client = await ref.read(_radarrClientProvider(instance).future);
-        await client.setMonitored(movie.id, !movie.monitored);
-        ref.invalidate(_moviesProvider(instance));
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: movie.posterUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: movie.posterUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) =>
-                              const ColoredBox(color: Colors.black12),
-                        )
-                      : const ColoredBox(color: Colors.black12),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Icon(
-                    movie.monitored ? Icons.bookmark : Icons.bookmark_border,
-                    color: Colors.white,
-                    shadows: const [Shadow(blurRadius: 4)],
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: movie.posterUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: movie.posterUrl!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) =>
+                            const ColoredBox(color: Colors.black12),
+                      )
+                    : const ColoredBox(color: Colors.black12),
+              ),
+              if (selected)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.primary, width: 3),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.2),
                   ),
                 ),
-                if (movie.hasFile)
-                  const Positioned(
-                    bottom: 4,
-                    left: 4,
-                    child:
-                        Icon(Icons.check_circle, color: Colors.green, size: 18),
-                  ),
-              ],
-            ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Icon(
+                  selected
+                      ? Icons.check_circle
+                      : movie.monitored
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.white,
+                  shadows: const [Shadow(blurRadius: 4)],
+                ),
+              ),
+              if (movie.hasFile)
+                const Positioned(
+                  bottom: 4,
+                  left: 4,
+                  child:
+                      Icon(Icons.check_circle, color: Colors.green, size: 18),
+                ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(movie.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Text(movie.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }

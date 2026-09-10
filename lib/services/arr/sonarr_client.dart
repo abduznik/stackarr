@@ -50,6 +50,29 @@ class SonarrClient extends ServarrClient {
     });
   }
 
+  /// Bulk monitor/unmonitor/delete via the editor endpoint, matching
+  /// what Sonarr's own web UI does for multi-select actions.
+  Future<void> setMonitoredBulk(List<int> seriesIds, bool monitored) async {
+    await put('series/editor', body: {
+      'seriesIds': seriesIds,
+      'monitored': monitored,
+    });
+  }
+
+  Future<void> deleteSeriesBulk(List<int> seriesIds,
+      {bool deleteFiles = false}) async {
+    await deleteWithBody('series/editor', body: {
+      'seriesIds': seriesIds,
+      'deleteFiles': deleteFiles,
+    });
+  }
+
+  Future<void> searchSeriesBulk(List<int> seriesIds) async {
+    for (final id in seriesIds) {
+      await post('command', body: {'name': 'SeriesSearch', 'seriesId': id});
+    }
+  }
+
   Future<void> searchEpisode(int episodeId) async {
     await post('command', body: {
       'name': 'EpisodeSearch',

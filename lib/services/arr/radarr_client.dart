@@ -34,6 +34,31 @@ class RadarrClient extends ServarrClient {
     });
   }
 
+  /// Bulk monitor/unmonitor via the editor endpoint — one PUT instead of
+  /// N read-modify-write calls, matching what Radarr's own web UI does
+  /// for multi-select actions.
+  Future<void> setMonitoredBulk(List<int> ids, bool monitored) async {
+    await put('movie/editor', body: {
+      'movieIds': ids,
+      'monitored': monitored,
+    });
+  }
+
+  Future<void> deleteMoviesBulk(List<int> ids,
+      {bool deleteFiles = false}) async {
+    await deleteWithBody('movie/editor', body: {
+      'movieIds': ids,
+      'deleteFiles': deleteFiles,
+    });
+  }
+
+  Future<void> searchMoviesBulk(List<int> ids) async {
+    await post('command', body: {
+      'name': 'MoviesSearch',
+      'movieIds': ids,
+    });
+  }
+
   Future<List<dynamic>> lookupMovie(String term) async {
     final result = await get('movie/lookup', query: {'term': term});
     return result as List<dynamic>;

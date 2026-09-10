@@ -7,6 +7,7 @@ import '../../services/arr/lidarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
 import '../shared/queue_tab.dart';
+import '../shared/selectable_grid.dart';
 
 final _lidarrClientProvider =
     FutureProvider.family<LidarrClient, InstanceConfig>((ref, instance) async {
@@ -104,22 +105,60 @@ class MusicScreen extends ConsumerWidget {
                 if (artists.isEmpty) {
                   return const Center(child: Text('No artists in library'));
                 }
-                return RefreshIndicator(
+                return SelectableGrid<Artist>(
+                  items: artists,
+                  idOf: (a) => a.id,
                   onRefresh: () async =>
                       ref.invalidate(_artistsProvider(instance)),
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 160,
-                      childAspectRatio: 0.8,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: artists.length,
-                    itemBuilder: (context, index) =>
-                        _ArtistTile(artist: artists[index], instance: instance),
+                  onActionCompleted: () =>
+                      ref.invalidate(_artistsProvider(instance)),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 160,
+                    childAspectRatio: 0.8,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
                   ),
+                  actions: [
+                    BulkAction(
+                      icon: Icons.bookmark,
+                      label: 'Monitor',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_lidarrClientProvider(instance).future);
+                        await client.setMonitoredBulk(ids, true);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.bookmark_border,
+                      label: 'Unmonitor',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_lidarrClientProvider(instance).future);
+                        await client.setMonitoredBulk(ids, false);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.search,
+                      label: 'Search',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_lidarrClientProvider(instance).future);
+                        await client.searchArtistsBulk(ids);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.delete_outline,
+                      label: 'Delete',
+                      destructive: true,
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_lidarrClientProvider(instance).future);
+                        await client.deleteArtistsBulk(ids);
+                      },
+                    ),
+                  ],
+                  itemBuilder: (context, artist, selected, onToggle) =>
+                      _ArtistTile(artist: artist, selected: selected),
                 );
               },
             ),
@@ -137,57 +176,68 @@ class MusicScreen extends ConsumerWidget {
   }
 }
 
-class _ArtistTile extends ConsumerWidget {
+class _ArtistTile extends StatelessWidget {
   final Artist artist;
-  final InstanceConfig instance;
+  final bool selected;
 
-  const _ArtistTile({required this.artist, required this.instance});
+  const _ArtistTile({required this.artist, required this.selected});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onLongPress: () async {
-        final client = await ref.read(_lidarrClientProvider(instance).future);
-        await client.setArtistMonitored(artist.id, !artist.monitored);
-        ref.invalidate(_artistsProvider(instance));
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: artist.posterUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: artist.posterUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) =>
-                              const ColoredBox(color: Colors.black12),
-                        )
-                      : const ColoredBox(color: Colors.black12),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Icon(
-                    artist.monitored ? Icons.bookmark : Icons.bookmark_border,
-                    color: Colors.white,
-                    shadows: const [Shadow(blurRadius: 4)],
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: artist.posterUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: artist.posterUrl!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) =>
+                            const ColoredBox(color: Colors.black12),
+                      )
+                    : const ColoredBox(color: Colors.black12),
+              ),
+              if (selected)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.primary, width: 3),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.2),
                   ),
                 ),
-              ],
-            ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Icon(
+                  selected
+                      ? Icons.check_circle
+                      : artist.monitored
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.white,
+                  shadows: const [Shadow(blurRadius: 4)],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(artist.artistName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Text(artist.artistName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }

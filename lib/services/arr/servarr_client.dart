@@ -70,6 +70,18 @@ abstract class ServarrClient {
     return _send(() => _http.delete(_uri(path), headers: _headers));
   }
 
+  /// Bulk-delete endpoints (e.g. `movie/editor`, `series/editor`) take the
+  /// id list in a JSON body rather than the URL, which package:http's
+  /// [http.Client.delete] supports via its optional `body` param even
+  /// though [delete] above doesn't expose one.
+  Future<dynamic> deleteWithBody(String path, {required Object body}) async {
+    return _send(() => _http.delete(
+          _uri(path),
+          headers: _headers,
+          body: jsonEncode(body),
+        ));
+  }
+
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     http.Response response;
     try {

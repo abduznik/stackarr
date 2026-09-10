@@ -38,6 +38,29 @@ class LidarrClient extends ServarrClient {
     });
   }
 
+  /// Bulk monitor/unmonitor/delete via the editor endpoint, matching
+  /// what Lidarr's own web UI does for multi-select actions.
+  Future<void> setMonitoredBulk(List<int> artistIds, bool monitored) async {
+    await put('artist/editor', body: {
+      'artistIds': artistIds,
+      'monitored': monitored,
+    });
+  }
+
+  Future<void> deleteArtistsBulk(List<int> artistIds,
+      {bool deleteFiles = false}) async {
+    await deleteWithBody('artist/editor', body: {
+      'artistIds': artistIds,
+      'deleteFiles': deleteFiles,
+    });
+  }
+
+  Future<void> searchArtistsBulk(List<int> artistIds) async {
+    for (final id in artistIds) {
+      await post('command', body: {'name': 'ArtistSearch', 'artistId': id});
+    }
+  }
+
   Future<List<dynamic>> lookupArtist(String term) async {
     final result = await get('artist/lookup', query: {'term': term});
     return result as List<dynamic>;

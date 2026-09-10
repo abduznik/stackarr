@@ -7,6 +7,7 @@ import '../../services/arr/sonarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
 import '../shared/queue_tab.dart';
+import '../shared/selectable_grid.dart';
 import 'series_detail_screen.dart';
 
 final _sonarrClientProvider =
@@ -103,22 +104,68 @@ class TvScreen extends ConsumerWidget {
                 if (series.isEmpty) {
                   return const Center(child: Text('No series in library'));
                 }
-                return RefreshIndicator(
+                return SelectableGrid<Series>(
+                  items: series,
+                  idOf: (s) => s.id,
                   onRefresh: () async =>
                       ref.invalidate(_seriesProvider(instance)),
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 160,
-                      childAspectRatio: 0.6,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: series.length,
-                    itemBuilder: (context, index) =>
-                        _SeriesTile(series: series[index], instance: instance),
+                  onActionCompleted: () =>
+                      ref.invalidate(_seriesProvider(instance)),
+                  onTapItem: (s) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            SeriesDetailScreen(instance: instance, series: s),
+                      ),
+                    );
+                  },
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 160,
+                    childAspectRatio: 0.6,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
                   ),
+                  actions: [
+                    BulkAction(
+                      icon: Icons.bookmark,
+                      label: 'Monitor',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_sonarrClientProvider(instance).future);
+                        await client.setMonitoredBulk(ids, true);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.bookmark_border,
+                      label: 'Unmonitor',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_sonarrClientProvider(instance).future);
+                        await client.setMonitoredBulk(ids, false);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.search,
+                      label: 'Search',
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_sonarrClientProvider(instance).future);
+                        await client.searchSeriesBulk(ids);
+                      },
+                    ),
+                    BulkAction(
+                      icon: Icons.delete_outline,
+                      label: 'Delete',
+                      destructive: true,
+                      onRun: (ids) async {
+                        final client = await ref
+                            .read(_sonarrClientProvider(instance).future);
+                        await client.deleteSeriesBulk(ids);
+                      },
+                    ),
+                  ],
+                  itemBuilder: (context, series, selected, onToggle) =>
+                      _SeriesTile(series: series, selected: selected),
                 );
               },
             ),
@@ -136,65 +183,68 @@ class TvScreen extends ConsumerWidget {
   }
 }
 
-class _SeriesTile extends ConsumerWidget {
+class _SeriesTile extends StatelessWidget {
   final Series series;
-  final InstanceConfig instance;
+  final bool selected;
 
-  const _SeriesTile({required this.series, required this.instance});
+  const _SeriesTile({required this.series, required this.selected});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) =>
-                SeriesDetailScreen(instance: instance, series: series),
-          ),
-        );
-      },
-      onLongPress: () async {
-        final client = await ref.read(_sonarrClientProvider(instance).future);
-        await client.setMonitored(series.id, !series.monitored);
-        ref.invalidate(_seriesProvider(instance));
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: series.posterUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: series.posterUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) =>
-                              const ColoredBox(color: Colors.black12),
-                        )
-                      : const ColoredBox(color: Colors.black12),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Icon(
-                    series.monitored ? Icons.bookmark : Icons.bookmark_border,
-                    color: Colors.white,
-                    shadows: const [Shadow(blurRadius: 4)],
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: series.posterUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: series.posterUrl!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) =>
+                            const ColoredBox(color: Colors.black12),
+                      )
+                    : const ColoredBox(color: Colors.black12),
+              ),
+              if (selected)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.primary, width: 3),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.2),
                   ),
                 ),
-              ],
-            ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Icon(
+                  selected
+                      ? Icons.check_circle
+                      : series.monitored
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.white,
+                  shadows: const [Shadow(blurRadius: 4)],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(series.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Text(series.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }
