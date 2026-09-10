@@ -1,5 +1,6 @@
 class Artist {
   final int id;
+  final String? foreignArtistId;
   final String artistName;
   final String? overview;
   final String? posterUrl;
@@ -9,6 +10,7 @@ class Artist {
 
   const Artist({
     required this.id,
+    this.foreignArtistId,
     required this.artistName,
     this.overview,
     this.posterUrl,
@@ -28,6 +30,7 @@ class Artist {
     }
     return Artist(
       id: json['id'] as int,
+      foreignArtistId: json['foreignArtistId'] as String?,
       artistName: json['artistName'] as String? ?? '',
       overview: json['overview'] as String?,
       posterUrl: poster,

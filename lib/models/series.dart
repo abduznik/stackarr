@@ -24,6 +24,7 @@ class Season {
 
 class Series {
   final int id;
+  final int? tvdbId;
   final String title;
   final int year;
   final String? overview;
@@ -35,6 +36,7 @@ class Series {
 
   const Series({
     required this.id,
+    this.tvdbId,
     required this.title,
     required this.year,
     this.overview,
@@ -59,6 +61,7 @@ class Series {
     final seasonsJson = (json['seasons'] as List<dynamic>?) ?? [];
     return Series(
       id: json['id'] as int,
+      tvdbId: json['tvdbId'] as int?,
       title: json['title'] as String,
       year: json['year'] as int? ?? 0,
       overview: json['overview'] as String?,

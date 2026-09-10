@@ -1,5 +1,6 @@
 class Movie {
   final int id;
+  final int? tmdbId;
   final String title;
   final int year;
   final String? overview;
@@ -12,6 +13,7 @@ class Movie {
 
   const Movie({
     required this.id,
+    this.tmdbId,
     required this.title,
     required this.year,
     this.overview,
@@ -34,6 +36,7 @@ class Movie {
     }
     return Movie(
       id: json['id'] as int,
+      tmdbId: json['tmdbId'] as int?,
       title: json['title'] as String,
       year: json['year'] as int? ?? 0,
       overview: json['overview'] as String?,

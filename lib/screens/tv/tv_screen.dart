@@ -5,6 +5,7 @@ import '../../models/instance_config.dart';
 import '../../models/series.dart';
 import '../../services/arr/sonarr_client.dart';
 import '../../services/storage/instance_repository.dart';
+import '../shared/add_media_screen.dart';
 
 final _sonarrClientProvider =
     FutureProvider.family<SonarrClient, InstanceConfig>((ref, instance) async {
@@ -32,6 +33,56 @@ class TvScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(instance.label)),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Add series',
+        onPressed: () async {
+          final client = await ref.read(_sonarrClientProvider(instance).future);
+          final existingSeries = await client.getSeries();
+          final existingTvdbIds =
+              existingSeries.map((s) => s.tvdbId).whereType<int>().toSet();
+
+          if (!context.mounted) return;
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AddMediaScreen(
+                serviceLabel: instance.label,
+                onSearch: client.lookupSeries,
+                onLoadQualityProfiles: client.getQualityProfiles,
+                onLoadRootFolders: client.getRootFolders,
+                onAdd: ({
+                  required lookupResult,
+                  required qualityProfileId,
+                  required rootFolderPath,
+                  required monitored,
+                  required searchOnAdd,
+                }) =>
+                    client.addSeries(
+                  lookupResult: lookupResult,
+                  qualityProfileId: qualityProfileId,
+                  rootFolderPath: rootFolderPath,
+                  monitored: monitored,
+                  searchOnAdd: searchOnAdd,
+                ),
+                titleOf: (r) => '${r['title']} (${r['year'] ?? '?'})',
+                posterUrlOf: (r) {
+                  final images = (r['images'] as List<dynamic>?) ?? [];
+                  for (final img in images) {
+                    if (img['coverType'] == 'poster') {
+                      return img['remoteUrl'] as String? ??
+                          img['url'] as String?;
+                    }
+                  }
+                  return null;
+                },
+                alreadyAdded: (r) =>
+                    existingTvdbIds.contains(r['tvdbId'] as int?),
+              ),
+            ),
+          );
+          ref.invalidate(_seriesProvider(instance));
+        },
+        child: const Icon(Icons.add),
+      ),
       body: seriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
