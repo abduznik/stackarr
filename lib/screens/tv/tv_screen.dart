@@ -6,6 +6,7 @@ import '../../models/series.dart';
 import '../../services/arr/sonarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
+import 'series_detail_screen.dart';
 
 final _sonarrClientProvider =
     FutureProvider.family<SonarrClient, InstanceConfig>((ref, instance) async {
@@ -120,6 +121,14 @@ class _SeriesTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) =>
+                SeriesDetailScreen(instance: instance, series: series),
+          ),
+        );
+      },
       onLongPress: () async {
         final client = await ref.read(_sonarrClientProvider(instance).future);
         await client.setMonitored(series.id, !series.monitored);
