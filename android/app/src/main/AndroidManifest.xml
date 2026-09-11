@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for every network call this app makes (Radarr/Sonarr/etc.
+         API clients, cached_network_image posters). Flutter's debug builds
+         merge this in automatically, but release builds only get what's
+         declared here — without it, release APKs silently fail every
+         request with no internet access at all. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="stackarr"
         android:name="${applicationName}"
