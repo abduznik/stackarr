@@ -1,7 +1,7 @@
 name: stackarr
 description: A cross-platform Flutter app to manage your entire *arr media stack — Radarr, Sonarr, Lidarr, Prowlarr, Bazarr & more.
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.1.2+3
 
 environment:
   sdk: ^3.5.0

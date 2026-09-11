@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../services/requests/jellyseerr_client.dart';
+import 'discover_detail_screen.dart';
 
 /// Search + submit-a-request screen — Jellyseerr's own web UI calls this
 /// "Discover"/search. Without this, RequestsScreen could only
@@ -131,6 +132,20 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         return _DiscoverTile(
                           result: result,
                           onRequest: () => _requestMedia(result),
+                          onOpenDetail: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => DiscoverDetailScreen(
+                                  client: widget.client,
+                                  result: result,
+                                  onRequestSubmitted: () {
+                                    widget.onRequestSubmitted();
+                                    setState(() {});
+                                  },
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -143,8 +158,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 class _DiscoverTile extends StatelessWidget {
   final Map<String, dynamic> result;
   final VoidCallback onRequest;
+  final VoidCallback onOpenDetail;
 
-  const _DiscoverTile({required this.result, required this.onRequest});
+  const _DiscoverTile({
+    required this.result,
+    required this.onRequest,
+    required this.onOpenDetail,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +174,7 @@ class _DiscoverTile extends StatelessWidget {
     final alreadyRequested = mediaInfo != null;
 
     return GestureDetector(
-      onTap: alreadyRequested ? null : onRequest,
+      onTap: onOpenDetail,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/instance_config.dart';
 import '../../services/download/qbittorrent_client.dart';
 import '../../services/storage/instance_repository.dart';
+import '../shared/library_search_bar.dart';
 
 final _qbtClientProvider =
     FutureProvider.family<QbittorrentClient, InstanceConfig>(
@@ -30,13 +31,22 @@ final _torrentsProvider =
 /// API, plus a Transfer tab showing global speed and letting the user set
 /// download/upload limits — the same controls qBt's own status bar and
 /// speed-limit dialog expose.
-class DownloadsScreen extends ConsumerWidget {
+class DownloadsScreen extends ConsumerStatefulWidget {
   final InstanceConfig instance;
 
   const DownloadsScreen({super.key, required this.instance});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DownloadsScreen> createState() => _DownloadsScreenState();
+}
+
+class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
+  String _query = '';
+
+  InstanceConfig get instance => widget.instance;
+
+  @override
+  Widget build(BuildContext context) {
     final torrentsAsync = ref.watch(_torrentsProvider(instance));
 
     return DefaultTabController(
@@ -44,6 +54,12 @@ class DownloadsScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(instance.label),
+          actions: [
+            LibrarySearchBar(
+              hintText: 'Search torrents...',
+              onQueryChanged: (q) => setState(() => _query = q),
+            ),
+          ],
           bottom: const TabBar(tabs: [
             Tab(text: 'Torrents'),
             Tab(text: 'Transfer'),
@@ -68,12 +84,17 @@ class DownloadsScreen extends ConsumerWidget {
           if (torrents.isEmpty) {
             return const Center(child: Text('No active downloads'));
           }
+          final filtered = filterByTitle(torrents, _query,
+              (t) => (t as Map<String, dynamic>)['name'] as String? ?? '');
+          if (filtered.isEmpty) {
+            return const Center(child: Text('No matches'));
+          }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(_torrentsProvider(instance)),
             child: ListView.builder(
-              itemCount: torrents.length,
+              itemCount: filtered.length,
               itemBuilder: (context, index) {
-                final t = torrents[index] as Map<String, dynamic>;
+                final t = filtered[index] as Map<String, dynamic>;
                 final progress = (t['progress'] as num?)?.toDouble() ?? 0;
                 final state = t['state'] as String? ?? '';
                 final paused = state.contains('paused');

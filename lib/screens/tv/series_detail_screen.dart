@@ -5,6 +5,7 @@ import '../../models/instance_config.dart';
 import '../../models/series.dart';
 import '../../services/arr/sonarr_client.dart';
 import '../../services/storage/instance_repository.dart';
+import '../shared/media_detail_header.dart';
 
 final _sonarrClientProvider =
     FutureProvider.family<SonarrClient, InstanceConfig>((ref, instance) async {
@@ -36,22 +37,85 @@ Map<int, List<Episode>> groupEpisodesBySeason(List<Episode> episodes) {
 }
 
 /// Season/episode breakdown for one series — Sonarr's own web UI shows
-/// this as the series detail page. Seasons are collapsible; each episode
-/// row has a monitor toggle and a per-episode search action.
-class SeriesDetailScreen extends ConsumerWidget {
+/// this as the series detail page. A metadata header (overview, genres,
+/// rating) sits above the season list; seasons are collapsible with each
+/// episode row having a monitor toggle and a per-episode search action.
+class SeriesDetailScreen extends ConsumerStatefulWidget {
   final InstanceConfig instance;
   final Series series;
+  final VoidCallback? onChanged;
 
-  const SeriesDetailScreen(
-      {super.key, required this.instance, required this.series});
+  const SeriesDetailScreen({
+    super.key,
+    required this.instance,
+    required this.series,
+    this.onChanged,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final episodesAsync = ref.watch(_episodesProvider((instance, series.id)));
+  ConsumerState<SeriesDetailScreen> createState() => _SeriesDetailScreenState();
+}
+
+class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
+  late Series _series;
+
+  InstanceConfig get instance => widget.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _series = widget.series;
+  }
+
+  Future<void> _toggleMonitored() async {
+    final client = await ref.read(_sonarrClientProvider(instance).future);
+    await client.setMonitored(_series.id, !_series.monitored);
+    final refreshed = await client.getSeriesById(_series.id);
+    if (!mounted) return;
+    setState(() => _series = refreshed);
+    widget.onChanged?.call();
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${_series.title}"?'),
+        content: const Text('This removes the series from Sonarr.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final client = await ref.read(_sonarrClientProvider(instance).future);
+    await client.deleteSeries(_series.id);
+    widget.onChanged?.call();
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final episodesAsync = ref.watch(_episodesProvider((instance, _series.id)));
+
+    final subtitleParts = [
+      '${_series.year}',
+      if (_series.network != null) _series.network!,
+      if (_series.runtime != null) '${_series.runtime} min',
+      _series.status,
+    ];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(series.title),
+        title: Text(_series.title),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -59,13 +123,21 @@ class SeriesDetailScreen extends ConsumerWidget {
             onPressed: () async {
               final client =
                   await ref.read(_sonarrClientProvider(instance).future);
-              await client.searchSeries(series.id);
+              await client.searchSeries(_series.id);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Searching for ${series.title}')),
+                  SnackBar(content: Text('Searching for ${_series.title}')),
                 );
               }
             },
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'delete') _delete();
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'delete', child: Text('Delete')),
+            ],
           ),
         ],
       ),
@@ -73,24 +145,41 @@ class SeriesDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (episodes) {
-          if (episodes.isEmpty) {
-            return const Center(child: Text('No episodes found'));
-          }
           final bySeason = groupEpisodesBySeason(episodes);
           final seasonNumbers = bySeason.keys.toList()..sort();
 
           return RefreshIndicator(
             onRefresh: () async =>
-                ref.invalidate(_episodesProvider((instance, series.id))),
+                ref.invalidate(_episodesProvider((instance, _series.id))),
             child: ListView(
               children: [
-                for (final seasonNumber in seasonNumbers)
-                  _SeasonExpansionTile(
-                    seasonNumber: seasonNumber,
-                    episodes: bySeason[seasonNumber]!,
-                    instance: instance,
-                    series: series,
-                  ),
+                MediaDetailHeader(
+                  posterUrl: _series.posterUrl,
+                  title: _series.title,
+                  subtitle: subtitleParts.join(' · '),
+                  genres: _series.genres,
+                  rating: _series.rating,
+                  overview: _series.overview,
+                ),
+                SwitchListTile(
+                  title: const Text('Monitored'),
+                  value: _series.monitored,
+                  onChanged: (_) => _toggleMonitored(),
+                ),
+                const Divider(height: 1),
+                if (episodes.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No episodes found'),
+                  )
+                else
+                  for (final seasonNumber in seasonNumbers)
+                    _SeasonExpansionTile(
+                      seasonNumber: seasonNumber,
+                      episodes: bySeason[seasonNumber]!,
+                      instance: instance,
+                      series: _series,
+                    ),
               ],
             ),
           );

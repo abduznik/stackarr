@@ -33,6 +33,13 @@ class Series {
   final String status;
   final int qualityProfileId;
   final List<Season> seasons;
+  final List<String> genres;
+  final String? network;
+  final int? runtime;
+
+  /// Sonarr nests this as ratings.value (unlike Radarr's per-provider
+  /// ratings.tmdb.value) — out of 10.
+  final double? rating;
 
   const Series({
     required this.id,
@@ -45,6 +52,10 @@ class Series {
     required this.status,
     required this.qualityProfileId,
     required this.seasons,
+    this.genres = const [],
+    this.network,
+    this.runtime,
+    this.rating,
   });
 
   int get seasonCount => seasons.length;
@@ -59,6 +70,7 @@ class Series {
       }
     }
     final seasonsJson = (json['seasons'] as List<dynamic>?) ?? [];
+    final ratings = json['ratings'] as Map<String, dynamic>?;
     return Series(
       id: json['id'] as int,
       tvdbId: json['tvdbId'] as int?,
@@ -72,6 +84,10 @@ class Series {
       seasons: seasonsJson
           .map((e) => Season.fromJson(e as Map<String, dynamic>))
           .toList(),
+      genres: (json['genres'] as List<dynamic>?)?.cast<String>() ?? const [],
+      network: json['network'] as String?,
+      runtime: json['runtime'] as int?,
+      rating: (ratings?['value'] as num?)?.toDouble(),
     );
   }
 }

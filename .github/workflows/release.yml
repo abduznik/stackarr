@@ -15,10 +15,14 @@ jobs:
           channel: stable
       - run: flutter pub get
       - run: flutter build apk --release
+      - name: Rename APK with version
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/stackarr-${GITHUB_REF_NAME}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: stackarr-android
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: dist/stackarr-${{ github.ref_name }}.apk
 
   build-windows:
     runs-on: windows-latest
@@ -30,11 +34,11 @@ jobs:
       - run: flutter pub get
       - run: flutter build windows --release
       - name: Zip Windows build
-        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath stackarr-windows.zip
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "stackarr-$env:GITHUB_REF_NAME-windows.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: stackarr-windows
-          path: stackarr-windows.zip
+          path: stackarr-${{ github.ref_name }}-windows.zip
 
   release:
     needs: [build-android, build-windows]
@@ -49,6 +53,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/stackarr-android/app-release.apk
-            artifacts/stackarr-windows/stackarr-windows.zip
+            artifacts/stackarr-android/stackarr-*.apk
+            artifacts/stackarr-windows/stackarr-*-windows.zip
           generate_release_notes: true

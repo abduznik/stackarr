@@ -4,6 +4,7 @@ import '../../models/indexer.dart';
 import '../../models/instance_config.dart';
 import '../../services/arr/prowlarr_client.dart';
 import '../../services/storage/instance_repository.dart';
+import '../shared/library_search_bar.dart';
 
 final _prowlarrClientProvider =
     FutureProvider.family<ProwlarrClient, InstanceConfig>(
@@ -24,13 +25,22 @@ final _indexersProvider =
 /// plus an Applications tab showing which Radarr/Sonarr/Lidarr instances
 /// Prowlarr pushes indexers to, mirroring Prowlarr's own Settings >
 /// Apps page.
-class IndexersScreen extends ConsumerWidget {
+class IndexersScreen extends ConsumerStatefulWidget {
   final InstanceConfig instance;
 
   const IndexersScreen({super.key, required this.instance});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<IndexersScreen> createState() => _IndexersScreenState();
+}
+
+class _IndexersScreenState extends ConsumerState<IndexersScreen> {
+  String _query = '';
+
+  InstanceConfig get instance => widget.instance;
+
+  @override
+  Widget build(BuildContext context) {
     final indexersAsync = ref.watch(_indexersProvider(instance));
 
     return DefaultTabController(
@@ -39,6 +49,10 @@ class IndexersScreen extends ConsumerWidget {
         appBar: AppBar(
           title: Text(instance.label),
           actions: [
+            LibrarySearchBar(
+              hintText: 'Search indexers...',
+              onQueryChanged: (q) => setState(() => _query = q),
+            ),
             IconButton(
               icon: const Icon(Icons.sync),
               tooltip: 'Sync all indexers to apps',
@@ -68,13 +82,17 @@ class IndexersScreen extends ConsumerWidget {
                 if (indexers.isEmpty) {
                   return const Center(child: Text('No indexers configured'));
                 }
+                final filtered = filterByTitle(indexers, _query, (i) => i.name);
+                if (filtered.isEmpty) {
+                  return const Center(child: Text('No matches'));
+                }
                 return RefreshIndicator(
                   onRefresh: () async =>
                       ref.invalidate(_indexersProvider(instance)),
                   child: ListView.builder(
-                    itemCount: indexers.length,
+                    itemCount: filtered.length,
                     itemBuilder: (context, index) {
-                      final indexer = indexers[index];
+                      final indexer = filtered[index];
                       return ListTile(
                         leading: Icon(indexer.protocol == 'torrent'
                             ? Icons.swap_vert

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/instance_config.dart';
 import '../../services/arr/bazarr_client.dart';
 import '../../services/storage/instance_repository.dart';
+import '../shared/library_search_bar.dart';
 
 final _bazarrClientProvider =
     FutureProvider.family<BazarrClient, InstanceConfig>((ref, instance) async {
@@ -42,17 +43,34 @@ final _wantedProvider =
 
 /// Bazarr wanted-subtitles screen: what's missing subtitles across movies
 /// and episodes, mirroring Bazarr's own "Wanted" tab.
-class SubtitlesScreen extends ConsumerWidget {
+class SubtitlesScreen extends ConsumerStatefulWidget {
   final InstanceConfig instance;
 
   const SubtitlesScreen({super.key, required this.instance});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubtitlesScreen> createState() => _SubtitlesScreenState();
+}
+
+class _SubtitlesScreenState extends ConsumerState<SubtitlesScreen> {
+  String _query = '';
+
+  InstanceConfig get instance => widget.instance;
+
+  @override
+  Widget build(BuildContext context) {
     final wantedAsync = ref.watch(_wantedProvider(instance));
 
     return Scaffold(
-      appBar: AppBar(title: Text(instance.label)),
+      appBar: AppBar(
+        title: Text(instance.label),
+        actions: [
+          LibrarySearchBar(
+            hintText: 'Search wanted...',
+            onQueryChanged: (q) => setState(() => _query = q),
+          ),
+        ],
+      ),
       body: wantedAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
@@ -60,12 +78,17 @@ class SubtitlesScreen extends ConsumerWidget {
           if (items.isEmpty) {
             return const Center(child: Text('No wanted subtitles'));
           }
+          final filtered = filterByTitle(items, _query,
+              (i) => wantedItemDisplay(i as Map<String, dynamic>).title);
+          if (filtered.isEmpty) {
+            return const Center(child: Text('No matches'));
+          }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(_wantedProvider(instance)),
             child: ListView.builder(
-              itemCount: items.length,
+              itemCount: filtered.length,
               itemBuilder: (context, index) {
-                final item = items[index] as Map<String, dynamic>;
+                final item = filtered[index] as Map<String, dynamic>;
                 final display = wantedItemDisplay(item);
                 return ListTile(
                   leading: const Icon(Icons.subtitles_outlined),

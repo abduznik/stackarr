@@ -7,6 +7,9 @@ class Artist {
   final bool monitored;
   final String status;
   final int qualityProfileId;
+  final List<String> genres;
+  final String? disambiguation;
+  final double? rating;
 
   const Artist({
     required this.id,
@@ -17,6 +20,9 @@ class Artist {
     required this.monitored,
     required this.status,
     required this.qualityProfileId,
+    this.genres = const [],
+    this.disambiguation,
+    this.rating,
   });
 
   factory Artist.fromJson(Map<String, dynamic> json) {
@@ -28,6 +34,7 @@ class Artist {
         break;
       }
     }
+    final ratings = json['ratings'] as Map<String, dynamic>?;
     return Artist(
       id: json['id'] as int,
       foreignArtistId: json['foreignArtistId'] as String?,
@@ -37,6 +44,9 @@ class Artist {
       monitored: json['monitored'] as bool? ?? false,
       status: json['status'] as String? ?? 'unknown',
       qualityProfileId: json['qualityProfileId'] as int? ?? 0,
+      genres: (json['genres'] as List<dynamic>?)?.cast<String>() ?? const [],
+      disambiguation: json['disambiguation'] as String?,
+      rating: (ratings?['value'] as num?)?.toDouble(),
     );
   }
 }

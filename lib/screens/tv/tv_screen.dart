@@ -6,6 +6,7 @@ import '../../models/series.dart';
 import '../../services/arr/sonarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
+import '../shared/library_search_bar.dart';
 import '../shared/quality_profiles_screen.dart';
 import '../shared/queue_tab.dart';
 import '../shared/selectable_grid.dart';
@@ -26,13 +27,22 @@ final _seriesProvider =
 
 /// Sonarr library screen: browse + monitor toggle, mirroring MoviesScreen's
 /// shape for Radarr — same interaction model, different backing client.
-class TvScreen extends ConsumerWidget {
+class TvScreen extends ConsumerStatefulWidget {
   final InstanceConfig instance;
 
   const TvScreen({super.key, required this.instance});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TvScreen> createState() => _TvScreenState();
+}
+
+class _TvScreenState extends ConsumerState<TvScreen> {
+  String _query = '';
+
+  InstanceConfig get instance => widget.instance;
+
+  @override
+  Widget build(BuildContext context) {
     final seriesAsync = ref.watch(_seriesProvider(instance));
 
     return DefaultTabController(
@@ -41,6 +51,10 @@ class TvScreen extends ConsumerWidget {
         appBar: AppBar(
           title: Text(instance.label),
           actions: [
+            LibrarySearchBar(
+              hintText: 'Search library...',
+              onQueryChanged: (q) => setState(() => _query = q),
+            ),
             IconButton(
               icon: const Icon(Icons.tune),
               tooltip: 'Quality profiles',
@@ -121,8 +135,12 @@ class TvScreen extends ConsumerWidget {
                 if (series.isEmpty) {
                   return const Center(child: Text('No series in library'));
                 }
+                final filtered = filterByTitle(series, _query, (s) => s.title);
+                if (filtered.isEmpty) {
+                  return const Center(child: Text('No matches'));
+                }
                 return SelectableGrid<Series>(
-                  items: series,
+                  items: filtered,
                   idOf: (s) => s.id,
                   onRefresh: () async =>
                       ref.invalidate(_seriesProvider(instance)),
@@ -131,8 +149,12 @@ class TvScreen extends ConsumerWidget {
                   onTapItem: (s) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            SeriesDetailScreen(instance: instance, series: s),
+                        builder: (_) => SeriesDetailScreen(
+                          instance: instance,
+                          series: s,
+                          onChanged: () =>
+                              ref.invalidate(_seriesProvider(instance)),
+                        ),
                       ),
                     );
                   },

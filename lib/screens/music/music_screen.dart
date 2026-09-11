@@ -6,9 +6,11 @@ import '../../models/instance_config.dart';
 import '../../services/arr/lidarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
+import '../shared/library_search_bar.dart';
 import '../shared/quality_profiles_screen.dart';
 import '../shared/queue_tab.dart';
 import '../shared/selectable_grid.dart';
+import 'artist_detail_screen.dart';
 
 final _lidarrClientProvider =
     FutureProvider.family<LidarrClient, InstanceConfig>((ref, instance) async {
@@ -25,13 +27,22 @@ final _artistsProvider =
 
 /// Lidarr library screen: browse + monitor toggle, same shape as
 /// MoviesScreen/TvScreen but for artists.
-class MusicScreen extends ConsumerWidget {
+class MusicScreen extends ConsumerStatefulWidget {
   final InstanceConfig instance;
 
   const MusicScreen({super.key, required this.instance});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MusicScreen> createState() => _MusicScreenState();
+}
+
+class _MusicScreenState extends ConsumerState<MusicScreen> {
+  String _query = '';
+
+  InstanceConfig get instance => widget.instance;
+
+  @override
+  Widget build(BuildContext context) {
     final artistsAsync = ref.watch(_artistsProvider(instance));
 
     return DefaultTabController(
@@ -40,6 +51,10 @@ class MusicScreen extends ConsumerWidget {
         appBar: AppBar(
           title: Text(instance.label),
           actions: [
+            LibrarySearchBar(
+              hintText: 'Search library...',
+              onQueryChanged: (q) => setState(() => _query = q),
+            ),
             IconButton(
               icon: const Icon(Icons.tune),
               tooltip: 'Quality profiles',
@@ -122,13 +137,33 @@ class MusicScreen extends ConsumerWidget {
                 if (artists.isEmpty) {
                   return const Center(child: Text('No artists in library'));
                 }
+                final filtered =
+                    filterByTitle(artists, _query, (a) => a.artistName);
+                if (filtered.isEmpty) {
+                  return const Center(child: Text('No matches'));
+                }
                 return SelectableGrid<Artist>(
-                  items: artists,
+                  items: filtered,
                   idOf: (a) => a.id,
                   onRefresh: () async =>
                       ref.invalidate(_artistsProvider(instance)),
                   onActionCompleted: () =>
                       ref.invalidate(_artistsProvider(instance)),
+                  onTapItem: (artist) async {
+                    final client =
+                        await ref.read(_lidarrClientProvider(instance).future);
+                    if (!context.mounted) return;
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ArtistDetailScreen(
+                          client: client,
+                          artist: artist,
+                          onChanged: () =>
+                              ref.invalidate(_artistsProvider(instance)),
+                        ),
+                      ),
+                    );
+                  },
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 160,
                     childAspectRatio: 0.8,

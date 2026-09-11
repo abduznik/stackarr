@@ -6,9 +6,11 @@ import '../../models/movie.dart';
 import '../../services/arr/radarr_client.dart';
 import '../../services/storage/instance_repository.dart';
 import '../shared/add_media_screen.dart';
+import '../shared/library_search_bar.dart';
 import '../shared/quality_profiles_screen.dart';
 import '../shared/queue_tab.dart';
 import '../shared/selectable_grid.dart';
+import 'movie_detail_screen.dart';
 
 final _radarrClientProvider =
     FutureProvider.family<RadarrClient, InstanceConfig>((ref, instance) async {
@@ -25,13 +27,22 @@ final _moviesProvider =
 
 /// Radarr library screen: browse + search + monitor toggle, same actions
 /// Radarr's own web UI exposes, driven entirely through RadarrClient.
-class MoviesScreen extends ConsumerWidget {
+class MoviesScreen extends ConsumerStatefulWidget {
   final InstanceConfig instance;
 
   const MoviesScreen({super.key, required this.instance});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MoviesScreen> createState() => _MoviesScreenState();
+}
+
+class _MoviesScreenState extends ConsumerState<MoviesScreen> {
+  String _query = '';
+
+  InstanceConfig get instance => widget.instance;
+
+  @override
+  Widget build(BuildContext context) {
     final moviesAsync = ref.watch(_moviesProvider(instance));
 
     return DefaultTabController(
@@ -40,6 +51,10 @@ class MoviesScreen extends ConsumerWidget {
         appBar: AppBar(
           title: Text(instance.label),
           actions: [
+            LibrarySearchBar(
+              hintText: 'Search library...',
+              onQueryChanged: (q) => setState(() => _query = q),
+            ),
             IconButton(
               icon: const Icon(Icons.tune),
               tooltip: 'Quality profiles',
@@ -119,13 +134,32 @@ class MoviesScreen extends ConsumerWidget {
                 if (movies.isEmpty) {
                   return const Center(child: Text('No movies in library'));
                 }
+                final filtered = filterByTitle(movies, _query, (m) => m.title);
+                if (filtered.isEmpty) {
+                  return const Center(child: Text('No matches'));
+                }
                 return SelectableGrid<Movie>(
-                  items: movies,
+                  items: filtered,
                   idOf: (m) => m.id,
                   onRefresh: () async =>
                       ref.invalidate(_moviesProvider(instance)),
                   onActionCompleted: () =>
                       ref.invalidate(_moviesProvider(instance)),
+                  onTapItem: (movie) async {
+                    final client =
+                        await ref.read(_radarrClientProvider(instance).future);
+                    if (!context.mounted) return;
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MovieDetailScreen(
+                          client: client,
+                          movie: movie,
+                          onChanged: () =>
+                              ref.invalidate(_moviesProvider(instance)),
+                        ),
+                      ),
+                    );
+                  },
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 160,
                     childAspectRatio: 0.6,

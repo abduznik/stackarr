@@ -103,5 +103,17 @@ class JellyseerrClient {
     await _post('request/$requestId/$status');
   }
 
+  /// Jellyseerr's /request list only embeds media ids (tmdbId, mediaType),
+  /// not the title — this proxies TMDB's own movie/tv detail endpoint
+  /// through Jellyseerr to fill that in for display.
+  Future<Map<String, dynamic>> getMediaDetails({
+    required int tmdbId,
+    required String mediaType, // 'movie' | 'tv'
+  }) async {
+    final path = mediaType == 'tv' ? 'tv/$tmdbId' : 'movie/$tmdbId';
+    final result = await _get(path);
+    return result as Map<String, dynamic>;
+  }
+
   void close() => _http.close();
 }
