@@ -32,6 +32,13 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# local_auth_windows's generated plugin code includes <experimental/coroutine>,
+# which newer MSVC toolsets (VS 2026 / VC 14.51+) hard-error on instead of
+# just warning about — this silences that specific deprecation error so the
+# plugin still compiles. Applied at the top level (not just
+# APPLY_STANDARD_SETTINGS) since it must reach plugin subprojects too.
+add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
