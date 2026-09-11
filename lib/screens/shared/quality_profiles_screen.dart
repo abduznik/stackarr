@@ -6,11 +6,13 @@ import '../../services/arr/servarr_client.dart';
 /// Sonarr, and Lidarr since `/qualityprofile` is identical across all
 /// three (see ServarrClient.getQualityProfiles/updateQualityProfile).
 ///
-/// Scope is intentionally limited to what's safe to edit without
+/// Editing is intentionally limited to what's safe without
 /// reconstructing the full nested quality-group structure: rename,
 /// toggle upgrade-allowed, and change the upgrade cutoff among the
-/// profile's own allowed qualities. Creating profiles or editing which
-/// qualities belong to which group stays a web-UI-only task — that
+/// profile's own allowed qualities. New profiles are created by
+/// duplicating an existing one (server assigns a new id) rather than
+/// through a from-scratch quality-group picker — editing which
+/// qualities belong to which group stays a web-UI-only task, that
 /// structure is deep enough to warrant its own dedicated builder.
 class QualityProfilesScreen extends StatefulWidget {
   final ServarrClient client;
@@ -118,6 +120,82 @@ class _QualityProfilesScreenState extends State<QualityProfilesScreen> {
     }
   }
 
+  Future<void> _duplicateProfile(QualityProfile profile) async {
+    final nameController =
+        TextEditingController(text: '${profile.name} (copy)');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Duplicate profile'),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'New profile name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await widget.client.createQualityProfile(
+        profile.toUpdatedJson(name: nameController.text.trim()),
+      );
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteProfile(QualityProfile profile) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${profile.name}"?'),
+        content: const Text(
+            'Any movies/series/artists using this profile will need to be '
+            'reassigned. The server will reject this if the profile is '
+            'still in use.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await widget.client.deleteQualityProfile(profile.id);
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,7 +211,14 @@ class _QualityProfilesScreenState extends State<QualityProfilesScreen> {
           }
           final profiles = snapshot.data ?? [];
           if (profiles.isEmpty) {
-            return const Center(child: Text('No quality profiles found'));
+            return const Center(
+              child: Text(
+                'No quality profiles found.\nCreate at least one from the '
+                'server\'s web UI first — this screen can only duplicate an '
+                'existing profile.',
+                textAlign: TextAlign.center,
+              ),
+            );
           }
           return ListView.builder(
             itemCount: profiles.length,
@@ -147,9 +232,22 @@ class _QualityProfilesScreenState extends State<QualityProfilesScreen> {
                   '${profile.cutoffName != null ? ' · upgrade until ${profile.cutoffName}' : ''}'
                   '${profile.upgradeAllowed ? '' : ' · upgrades disabled'}',
                 ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _editProfile(profile),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        _editProfile(profile);
+                      case 'duplicate':
+                        _duplicateProfile(profile);
+                      case 'delete':
+                        _deleteProfile(profile);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
                 ),
               );
             },

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/instance_config.dart';
 import '../../services/requests/jellyseerr_client.dart';
 import '../../services/storage/instance_repository.dart';
+import 'discover_screen.dart';
 
 final _jellyseerrClientProvider =
     FutureProvider.family<JellyseerrClient, InstanceConfig>(
@@ -19,7 +20,10 @@ final _requestsProvider =
 });
 
 /// Jellyseerr requests inbox: pending/approved/declined requests with
-/// approve/decline actions, mirroring Jellyseerr's own request list.
+/// approve/decline actions, mirroring Jellyseerr's own request list, plus
+/// a Discover tab to search and submit new requests — the "Requests"
+/// list alone couldn't create anything, only react to what other people
+/// already asked for.
 class RequestsScreen extends ConsumerWidget {
   final InstanceConfig instance;
 
@@ -29,9 +33,44 @@ class RequestsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final requestsAsync = ref.watch(_requestsProvider(instance));
 
-    return Scaffold(
-      appBar: AppBar(title: Text(instance.label)),
-      body: requestsAsync.when(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(instance.label),
+          bottom: const TabBar(tabs: [
+            Tab(text: 'Requests'),
+            Tab(text: 'Discover'),
+          ]),
+        ),
+        body: TabBarView(
+          children: [
+            _buildRequestsList(context, ref, requestsAsync),
+            _buildDiscoverTab(ref),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiscoverTab(WidgetRef ref) {
+    return FutureBuilder<JellyseerrClient>(
+      future: ref.read(_jellyseerrClientProvider(instance).future),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return DiscoverScreen(
+          client: snapshot.data!,
+          onRequestSubmitted: () => ref.invalidate(_requestsProvider(instance)),
+        );
+      },
+    );
+  }
+
+  Widget _buildRequestsList(BuildContext context, WidgetRef ref,
+      AsyncValue<List<dynamic>> requestsAsync) {
+    return requestsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (requests) {
@@ -87,9 +126,7 @@ class RequestsScreen extends ConsumerWidget {
               },
             ),
           );
-        },
-      ),
-    );
+        });
   }
 
   String _statusLabel(int status) => switch (status) {

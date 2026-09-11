@@ -131,5 +131,21 @@ abstract class ServarrClient {
     await put('qualityprofile/$id', body: updatedProfile);
   }
 
+  /// Creates a new profile from a full profile body (typically an
+  /// existing profile's JSON with `id` stripped and `name` changed) —
+  /// the server assigns the new id. Cloning an existing profile is the
+  /// supported creation path here rather than building a from-scratch
+  /// quality-group picker, which would need its own deep nested editor.
+  Future<Map<String, dynamic>> createQualityProfile(
+      Map<String, dynamic> profile) async {
+    final body = {...profile}..remove('id');
+    final result = await post('qualityprofile', body: body);
+    return result as Map<String, dynamic>;
+  }
+
+  Future<void> deleteQualityProfile(int id) async {
+    await delete('qualityprofile/$id');
+  }
+
   void close() => _http.close();
 }
