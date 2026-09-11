@@ -93,7 +93,8 @@ void main() {
 
   group('QbittorrentClient transfer info and speed limits', () {
     Future<QbittorrentClient> loggedInClient(_MockHttpClient mockHttp) async {
-      when(() => mockHttp.post(any(), body: any(named: 'body')))
+      when(() => mockHttp.post(any(),
+              headers: any(named: 'headers'), body: any(named: 'body')))
           .thenAnswer((_) async => http.Response(
                 'Ok.',
                 200,

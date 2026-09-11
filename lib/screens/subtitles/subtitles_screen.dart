@@ -19,6 +19,27 @@ final _wantedProvider =
   return [...movies, ...episodes];
 });
 
+/// Extracts the display title and subtitle line for one wanted-subtitle
+/// row. Pulled out as a pure function so the real Bazarr field names
+/// (confirmed against a live instance: episodes use `episodeTitle`
+/// camelCase and `episode_number` snake_case as a "1x22"-style string,
+/// not the `episode_title` this originally assumed) are unit-testable
+/// without a fake BazarrClient.
+({String title, String? subtitle}) wantedItemDisplay(
+    Map<String, dynamic> item) {
+  final title = item['title'] as String? ?? item['seriesTitle'] as String?;
+  final episodeTitle = item['episodeTitle'] as String?;
+  final episodeNumber = item['episode_number'] as String?;
+  final subtitleParts = [
+    if (episodeNumber != null) episodeNumber,
+    if (episodeTitle != null) episodeTitle,
+  ];
+  return (
+    title: title ?? 'Unknown',
+    subtitle: subtitleParts.isEmpty ? null : subtitleParts.join(' · '),
+  );
+}
+
 /// Bazarr wanted-subtitles screen: what's missing subtitles across movies
 /// and episodes, mirroring Bazarr's own "Wanted" tab.
 class SubtitlesScreen extends ConsumerWidget {
@@ -45,14 +66,12 @@ class SubtitlesScreen extends ConsumerWidget {
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final item = items[index] as Map<String, dynamic>;
-                final title =
-                    item['title'] as String? ?? item['seriesTitle'] as String?;
+                final display = wantedItemDisplay(item);
                 return ListTile(
                   leading: const Icon(Icons.subtitles_outlined),
-                  title: Text(title ?? 'Unknown'),
-                  subtitle: item['episode_title'] != null
-                      ? Text(item['episode_title'] as String)
-                      : null,
+                  title: Text(display.title),
+                  subtitle:
+                      display.subtitle != null ? Text(display.subtitle!) : null,
                 );
               },
             ),

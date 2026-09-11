@@ -35,8 +35,13 @@ class QbittorrentClient {
   Future<void> login() async {
     http.Response response;
     try {
+      // qBittorrent's Web API rejects login without a same-origin Referer
+      // (its CSRF/host-header protection) — confirmed against a real
+      // reverse-proxied instance, which returned "Fails." with no
+      // Set-Cookie until this header was added.
       response = await _http.post(
         _uri('auth/login'),
+        headers: {'Referer': baseUrl},
         body: {'username': username, 'password': password},
       ).timeout(const Duration(seconds: 15));
     } catch (e) {
