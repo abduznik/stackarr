@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/abduznik/stackarr/releases"><img src="https://img.shields.io/github/v/release/abduznik/stackarr?include_prereleases&style=flat-square" alt="Latest release"></a>
   <a href="https://github.com/abduznik/stackarr/blob/main/LICENSE"><img src="https://img.shields.io/github/license/abduznik/stackarr?style=flat-square" alt="License"></a>
-  <img src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Windows%20%7C%20Web-lightgrey?style=flat-square" alt="Platforms">
+  <img src="https://img.shields.io/badge/platforms-Android%20%7C%20Windows-lightgrey?style=flat-square" alt="Platforms">
   <a href="https://github.com/abduznik/stackarr/stargazers"><img src="https://img.shields.io/github/stars/abduznik/stackarr?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/abduznik/stackarr/issues"><img src="https://img.shields.io/github/issues/abduznik/stackarr?style=flat-square" alt="Issues"></a>
   <a href="https://github.com/sponsors/abduznik"><img src="https://img.shields.io/badge/Sponsor-❤️-ea4aaa?style=flat-square" alt="Sponsor"></a>
@@ -39,25 +39,27 @@ Existing mobile clients ([Ruddarr](https://github.com/ruddarr/app), [Seekarr](ht
 - **Prowlarr** — indexer management and sync
 - **Bazarr** — subtitle management
 - **qBittorrent / Aria2** — download client control
-- **Jellyseerr / Overseerr** — request management
+- **Jellyseerr** — request management (Overseerr planned)
 
 Plus a **setup wizard** that walks you through connecting each service with auto-detection and health checks.
 
 ## Features
 
-- 🎬 **Movies** — Radarr library: browse, search, add, monitor, quality profiles
-- 📺 **TV Shows** — Sonarr library: series, seasons, episodes, air dates
-- 🎵 **Music** — Lidarr library: artists, albums, track management
-- 🔍 **Indexers** — Prowlarr: manage, test, and sync indexers to all *arr apps
-- 📝 **Subtitles** — Bazarr: subtitle search, download, language profiles
-- ⬇️ **Downloads** — qBittorrent & Aria2: queue, pause, resume, speed limits
-- 📬 **Requests** — Jellyseerr / Overseerr: browse catalog, submit requests, manage pending
-- 📅 **Calendar** — Unified release calendar across all services
-- 🔔 **Notifications** — Push alerts for completed downloads, new episodes, failed grabs
-- 🧙 **Setup Wizard** — Step-by-step connection guide with auto-detection and health checks
+- 🎬 **Movies** — Radarr library: browse, search, add, monitor, batch actions, quality profiles
+- 📺 **TV Shows** — Sonarr library: series, seasons, episodes, per-episode monitor & search
+- 🎵 **Music** — Lidarr library: artists, albums, monitor, batch actions
+- 🔍 **Indexers** — Prowlarr: manage, test, sync indexers, connected-app overview
+- 📝 **Subtitles** — Bazarr: wanted-subtitles across movies and episodes
+- ⬇️ **Downloads** — qBittorrent (queue, pause/resume, speed limits) & Aria2 (active + history)
+- 📬 **Requests** — Jellyseerr: browse/search catalog, submit new requests, approve/decline pending
+- 📅 **Calendar** — Unified release calendar merging Radarr + Sonarr by day
+- 🔐 **App Lock** — Optional PIN + biometric unlock, independent of any per-service login
+- 🧙 **Setup Wizard** — Step-by-step connection guide with live health checks per service
+- 📱✨ **Responsive UI** — Adaptive layout: navigation rail on desktop/tablet, bottom nav on phone
 - 🌙 **Dark & Light Themes** — Adaptive Material 3 theming
-- 📱 **Cross-Platform** — Android, iOS, Windows, Web from one Flutter codebase
-- 🔒 **Local Only** — Connects to your servers directly, no cloud, no telemetry
+- 🔒 **Local Only** — Connects to your servers directly, no cloud, no telemetry, credentials in OS-level secure storage
+
+**Not yet built:** push notifications, Overseerr/Readarr/Whisparr, full quality-group editor (create/edit is supported; reordering nested quality groups is not), macOS/Linux/iOS builds. See [Roadmap](#roadmap).
 
 ## Supported Services
 
@@ -75,19 +77,38 @@ Plus a **setup wizard** that walks you through connecting each service with auto
 | [Readarr](https://readarr.com/) | Book management | v3 REST | 🔜 Planned |
 | [Whisparr](https://whisparr.com/) | Adult content | v3 REST | 🔜 Planned |
 
+## Testing & Verification
+
+Every supported service's API client has been verified against a real, live instance — not just mocked/fake data — confirming the app's requests and response parsing match what these servers actually return in production:
+
+| Service | Live-verified | Notes |
+|---------|---------------|-------|
+| Radarr | ✅ | Movies, quality profiles, calendar, lookup, queue |
+| Sonarr | ✅ | Series, seasons, episodes, quality profiles, queue |
+| Lidarr | ✅ | Artists, albums, quality profiles, queue |
+| Prowlarr | ✅ | Indexers, connected applications |
+| Bazarr | ✅ | Wanted movies/episodes — a real field-name mismatch (`episodeTitle` vs. an assumed `episode_title`) was found and fixed this way |
+| qBittorrent | ✅ | Torrents, transfer info — a real auth bug (missing `Referer` header, silently rejected behind a reverse proxy) was found and fixed this way |
+| Jellyseerr | ✅ | Requests inbox, search/discover |
+| Aria2 | ⚠️ Client code reviewed, not live-tested (the only available test instance was unreachable — a `502` from its reverse proxy, unrelated to this app) |
+
+On top of live verification, the full suite includes 80+ automated tests: widget tests for every screen, unit tests for parsing/business logic, and HTTP-contract tests (mocked `http.Client`) asserting the exact wire format sent to each service. UI responsiveness (NavigationRail vs. bottom nav, desktop/tablet landscape vs. phone portrait) is covered by dedicated layout tests. Run everything yourself with:
+
+```bash
+flutter test
+flutter analyze
+```
+
 ## Installation
 
 ### Android
-Download the latest `.apk` from [Releases](https://github.com/abduznik/stackarr/releases) and sideload it.
-
-### iOS
-Download the `.ipa` from [Releases](https://github.com/abduznik/stackarr/releases) and install via [AltStore](https://altstore.io/) or [SideStore](https://sidestore.io/).
+Download the latest `.apk` from [Releases](https://github.com/abduznik/stackarr/releases) and sideload it. Currently signed with a debug key (no Play Store distribution yet) — Android will warn you before installing an app from outside the Store, which is expected.
 
 ### Windows
-Download the latest `.msi` or `.exe` installer from [Releases](https://github.com/abduznik/stackarr/releases).
+Download and unzip the latest `stackarr-windows.zip` from [Releases](https://github.com/abduznik/stackarr/releases), then run `stackarr.exe`.
 
-### Web
-Access the web build directly from your server or host it anywhere.
+### iOS, macOS, Linux, Web
+Not built or published yet — see [Roadmap](#roadmap). Web builds locally today (`flutter build web`) but isn't part of the release pipeline.
 
 ### Build from Source
 ```bash
@@ -100,7 +121,7 @@ flutter build apk              # Android
 flutter build windows          # Windows
 ```
 
-**Requirements:** Flutter 3.x, Dart 3.x
+**Requirements:** Flutter 3.24+, Dart 3.5+
 
 ## Setup Wizard
 
@@ -121,13 +142,20 @@ Multiple instances supported — manage your home lab and your friend's from one
 
 ## Roadmap
 
-- [ ] Unified calendar view across all services
-- [ ] Push notifications (FCM / local)
-- [ ] Overseerr + Readarr + Whisparr support
-- [ ] Custom quality profile management
-- [ ] Batch operations (mass add/remove)
-- [ ] Download client switching per service
-- [ ] macOS and Linux desktop builds
+**Done:**
+- [x] Unified calendar (Radarr + Sonarr)
+- [x] Batch operations (multi-select monitor/search/delete for Movies, TV, Music)
+- [x] Quality profile management (view, edit, duplicate, delete)
+- [x] App-level PIN + biometric lock
+- [x] Responsive desktop/tablet/phone layouts
+
+**Planned:**
+- [ ] Live-verify Aria2 against a real instance (blocked on a reachable test server)
+- [ ] Push notifications (FCM / local) for completed downloads, new episodes, failed grabs
+- [ ] Overseerr, Readarr, Whisparr support
+- [ ] Full quality-group editor (create/reorder nested quality groups, not just duplicate/edit existing profiles)
+- [ ] Signed Android release build (currently debug-signed)
+- [ ] macOS, Linux, iOS, and Web builds added to the release pipeline
 - [ ] Widget support (Android/iOS)
 - [ ] Shortcuts / quick actions
 
