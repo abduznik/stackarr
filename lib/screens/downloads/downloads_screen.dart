@@ -26,7 +26,10 @@ final _torrentsProvider =
 });
 
 /// qBittorrent queue: pause/resume/delete, same primitives as the qBt Web
-/// UI's torrent list, driven through QbittorrentClient's cookie-session API.
+/// UI's torrent list, driven through QbittorrentClient's cookie-session
+/// API, plus a Transfer tab showing global speed and letting the user set
+/// download/upload limits — the same controls qBt's own status bar and
+/// speed-limit dialog expose.
 class DownloadsScreen extends ConsumerWidget {
   final InstanceConfig instance;
 
@@ -36,9 +39,29 @@ class DownloadsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final torrentsAsync = ref.watch(_torrentsProvider(instance));
 
-    return Scaffold(
-      appBar: AppBar(title: Text(instance.label)),
-      body: torrentsAsync.when(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(instance.label),
+          bottom: const TabBar(tabs: [
+            Tab(text: 'Torrents'),
+            Tab(text: 'Transfer'),
+          ]),
+        ),
+        body: TabBarView(
+          children: [
+            _buildTorrentsList(context, ref, torrentsAsync),
+            _TransferTab(instance: instance),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTorrentsList(BuildContext context, WidgetRef ref,
+      AsyncValue<List<dynamic>> torrentsAsync) {
+    return torrentsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (torrents) {
@@ -118,8 +141,110 @@ class DownloadsScreen extends ConsumerWidget {
               },
             ),
           );
-        },
-      ),
+        });
+  }
+}
+
+final _transferInfoProvider =
+    FutureProvider.family<Map<String, dynamic>, InstanceConfig>(
+        (ref, instance) async {
+  final client = await ref.watch(_qbtClientProvider(instance).future);
+  return client.getTransferInfo();
+});
+
+class _TransferTab extends ConsumerStatefulWidget {
+  final InstanceConfig instance;
+
+  const _TransferTab({required this.instance});
+
+  @override
+  ConsumerState<_TransferTab> createState() => _TransferTabState();
+}
+
+class _TransferTabState extends ConsumerState<_TransferTab> {
+  final _downloadController = TextEditingController();
+  final _uploadController = TextEditingController();
+
+  @override
+  void dispose() {
+    _downloadController.dispose();
+    _uploadController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _applyLimits() async {
+    final client = await ref.read(_qbtClientProvider(widget.instance).future);
+    final downloadKbps = int.tryParse(_downloadController.text);
+    final uploadKbps = int.tryParse(_uploadController.text);
+    await client.setSpeedLimit(
+      downloadKbps: downloadKbps == 0 ? null : downloadKbps,
+      uploadKbps: uploadKbps == 0 ? null : uploadKbps,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Speed limits updated')),
+      );
+    }
+    ref.invalidate(_transferInfoProvider(widget.instance));
+  }
+
+  String _formatBytesPerSec(num? bytes) {
+    if (bytes == null || bytes == 0) return '0 B/s';
+    final kb = bytes / 1024;
+    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB/s';
+    return '${(kb / 1024).toStringAsFixed(1)} MB/s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final transferAsync = ref.watch(_transferInfoProvider(widget.instance));
+
+    return transferAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (info) {
+        return RefreshIndicator(
+          onRefresh: () async =>
+              ref.invalidate(_transferInfoProvider(widget.instance)),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              ListTile(
+                leading: const Icon(Icons.download),
+                title: const Text('Download speed'),
+                trailing:
+                    Text(_formatBytesPerSec(info['dl_info_speed'] as num?)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.upload),
+                title: const Text('Upload speed'),
+                trailing:
+                    Text(_formatBytesPerSec(info['up_info_speed'] as num?)),
+              ),
+              const Divider(height: 32),
+              Text('Speed limits (KB/s, 0 = unlimited)',
+                  style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _downloadController,
+                decoration: const InputDecoration(labelText: 'Download limit'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _uploadController,
+                decoration: const InputDecoration(labelText: 'Upload limit'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _applyLimits,
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

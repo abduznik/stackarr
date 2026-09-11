@@ -3,7 +3,8 @@ import 'arr_exception.dart';
 import 'servarr_client.dart';
 
 class ProwlarrClient extends ServarrClient {
-  ProwlarrClient({required super.baseUrl, required super.apiKey})
+  ProwlarrClient(
+      {required super.baseUrl, required super.apiKey, super.httpClient})
       : super(apiVersion: 'v1');
 
   Future<List<Indexer>> getIndexers() async {
