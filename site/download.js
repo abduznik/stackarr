@@ -30,6 +30,35 @@ function platformLabel(platform) {
   }[platform];
 }
 
+function assetLabel(asset) {
+  const name = asset.name.toLowerCase();
+  if (name.endsWith(".apk")) return { name: "Android", ext: ".apk" };
+  if (name.endsWith("-windows.zip") || name.endsWith(".zip")) return { name: "Windows", ext: ".zip" };
+  if (name.endsWith(".dmg")) return { name: "macOS", ext: ".dmg" };
+  if (name.endsWith(".appimage")) return { name: "Linux", ext: ".AppImage" };
+  return { name: asset.name, ext: "" };
+}
+
+function renderOtherPlatforms(assets, usedAsset) {
+  const wraps = document.querySelectorAll("[data-other-platforms]");
+  const remaining = assets.filter((a) => a !== usedAsset);
+  if (remaining.length === 0) return;
+
+  wraps.forEach((wrap) => {
+    const list = wrap.querySelector("[data-other-platforms-list]");
+    if (!list) return;
+    list.innerHTML = "";
+    remaining.forEach((asset) => {
+      const { name, ext } = assetLabel(asset);
+      const a = document.createElement("a");
+      a.href = asset.browser_download_url;
+      a.innerHTML = `${name} <span class="p-ext">${ext}</span>`;
+      list.appendChild(a);
+    });
+    wrap.hidden = false;
+  });
+}
+
 async function wireDownloadButtons() {
   const buttons = document.querySelectorAll("[data-download-button]");
   const metas = document.querySelectorAll("[data-download-meta]");
@@ -60,8 +89,9 @@ async function wireDownloadButtons() {
       const sizeMb = (asset.size / (1024 * 1024)).toFixed(1);
       metas.forEach((el) => {
         el.classList.remove("error");
-        el.innerHTML = `${tag} &middot; ${sizeMb} MB &middot; <a href="${RELEASES_PAGE}" target="_blank" rel="noopener">all downloads</a>`;
+        el.innerHTML = `${tag} &middot; ${sizeMb} MB &middot; <a href="downloads.html">version history</a>`;
       });
+      renderOtherPlatforms(release.assets || [], asset);
     } else {
       // Platform has no direct build yet (macOS/Linux/iOS) — send to the releases page.
       buttons.forEach((btn) => {
@@ -71,8 +101,9 @@ async function wireDownloadButtons() {
       });
       metas.forEach((el) => {
         el.classList.remove("error");
-        el.innerHTML = `${label} build not published yet &middot; <a href="${RELEASES_PAGE}" target="_blank" rel="noopener">see ${tag} on GitHub</a>`;
+        el.innerHTML = `${label} build not published yet &middot; <a href="downloads.html">see other platforms</a>`;
       });
+      renderOtherPlatforms(release.assets || [], null);
     }
   } catch (err) {
     buttons.forEach((btn) => {

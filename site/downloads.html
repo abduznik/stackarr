@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stackarr Downloads</title>
+  <meta name="description" content="Every Stackarr release, with direct download links for Android, Windows, and every other published platform build." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23b8571f%22/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Public+Sans:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <nav class="topbar">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <span class="dot"></span>
+        stackarr
+      </a>
+      <div class="nav-links">
+        <a href="index.html#features">Features</a>
+        <a href="index.html#services">Services</a>
+        <a href="index.html#platforms">Platforms</a>
+        <a href="downloads.html" style="color: var(--ink); font-weight: 600;">Downloads</a>
+        <a class="gh" href="https://github.com/abduznik/stackarr" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+          </svg>
+          <span class="label">GitHub</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero downloads-hero">
+    <div class="wrap">
+      <p class="eyebrow">Version history</p>
+      <h1>Every release, every platform.</h1>
+      <p class="lede">
+        Pulled live from GitHub Releases — pick a version below if you need to roll back,
+        or you're after a build for a platform other than the one you're on right now.
+      </p>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <section class="releases-section">
+      <p class="section-label" data-releases-status>Loading release history from GitHub&hellip;</p>
+      <div class="release-list" data-releases-list></div>
+    </section>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap" style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; width:100%;">
+      <span>Stackarr is not affiliated with Radarr, Sonarr, Lidarr, Prowlarr, Bazarr, qBittorrent, Aria2, or Jellyseerr.</span>
+      <span><a href="https://github.com/abduznik/stackarr/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></span>
+    </div>
+  </footer>
+
+  <script src="downloads.js"></script>
+</body>
+</html>
