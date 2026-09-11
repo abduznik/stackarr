@@ -18,6 +18,7 @@
 </p>
 
 <p align="center">
+  <a href="#screenshots">Screenshots</a> •
   <a href="#features">Features</a> •
   <a href="#supported-services">Services</a> •
   <a href="#installation">Install</a> •
@@ -42,6 +43,24 @@ Existing mobile clients ([Ruddarr](https://github.com/ruddarr/app), [Seekarr](ht
 - **Jellyseerr** — request management (Overseerr planned)
 
 Plus a **setup wizard** that walks you through connecting each service with auto-detection and health checks.
+
+## Screenshots
+
+All screenshots below are from a real build connected to a live Radarr instance — not mockups.
+
+<table>
+<tr>
+<td><img src="docs/screenshots/setup-wizard.jpg" alt="Setup wizard service picker" width="400"/><br/><sub>Setup wizard — pick which services to connect</sub></td>
+<td><img src="docs/screenshots/connect-radarr.jpg" alt="Connect Radarr form" width="400"/><br/><sub>Connection form with live health check</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/connection-success.jpg" alt="Successful connection test" width="400"/><br/><sub>Test Connection succeeding against a real server</sub></td>
+<td><img src="docs/screenshots/movie-library.jpg" alt="Movie library" width="400"/><br/><sub>Radarr library — real movies, posters, monitor state</sub></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/screenshots/calendar.jpg" alt="Unified calendar" width="820"/><br/><sub>Unified calendar with real release dates</sub></td>
+</tr>
+</table>
 
 ## Features
 
@@ -108,7 +127,7 @@ Download the latest `.apk` from [Releases](https://github.com/abduznik/stackarr/
 Download and unzip the latest `stackarr-windows.zip` from [Releases](https://github.com/abduznik/stackarr/releases), then run `stackarr.exe`.
 
 ### iOS, macOS, Linux, Web
-Not built or published yet — see [Roadmap](#roadmap). Web builds locally today (`flutter build web`) but isn't part of the release pipeline.
+Not built or published yet — see [Roadmap](#roadmap). Web compiles (`flutter build web`) and runs correctly in debug mode (the screenshots above were captured that way), but the optimized release build currently crashes on startup — a real, unresolved bug, not yet root-caused. Don't rely on `flutter build web`'s release output until this is fixed.
 
 ### Build from Source
 ```bash
@@ -148,6 +167,9 @@ Multiple instances supported — manage your home lab and your friend's from one
 - [x] Quality profile management (view, edit, duplicate, delete)
 - [x] App-level PIN + biometric lock
 - [x] Responsive desktop/tablet/phone layouts
+
+**Known issues:**
+- [ ] Web release build (`flutter build web`) crashes on startup — debug mode works fine, root cause not yet identified
 
 **Planned:**
 - [ ] Live-verify Aria2 against a real instance (blocked on a reachable test server)
